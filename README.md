@@ -122,10 +122,10 @@ flowchart LR
 
 ```bash
 git lfs install
-git clone https://github.com/<your-user>/ClockworkTempo.git
+git clone https://github.com/Vishesh1305/vgp233-fallguys.git
 ```
 
-1. Open **Unity Hub**, click **Add > Add project from disk** and select the `ClockworkTempo` folder.
+1. Open **Unity Hub**, click **Add > Add project from disk** and select the `ClockworkTempo` folder inside the cloned repo.
 2. Open with editor **6000.3.26f1**.
 3. Open `Assets/_Project/Scenes/Course.unity` and press **Play**.
 
