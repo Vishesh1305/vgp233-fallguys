@@ -239,6 +239,25 @@ namespace ClockworkTempo
             }
         }
 
+        /// <summary>
+        /// Clears jump and ground state and snaps the model to face the given rotation.
+        /// Called by PlayerRespawner right after it teleports the Rigidbody.
+        /// </summary>
+        /// <param name="facing">World rotation the model should face after respawning.</param>
+        public void PrepareForRespawn(Quaternion facing)
+        {
+            // Forget any jump pressed or ledge left before the fall, so nothing fires on the respawn frame.
+            _lastJumpPressedTime = float.NegativeInfinity;
+            _lastGroundedTime = float.NegativeInfinity;
+            _isJumpRising = false;
+            IsGrounded = false;
+
+            if (_visual != null)
+            {
+                _visual.rotation = facing;
+            }
+        }
+
         private void OnDrawGizmosSelected()
         {
             CapsuleCollider capsule = GetComponent<CapsuleCollider>();

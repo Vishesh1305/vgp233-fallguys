@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 657259905902511214}
   - component: {fileID: 289331744176773166}
   - component: {fileID: 1744602370249243838}
+  - component: {fileID: 8134054225813318995}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -114,6 +115,20 @@ MonoBehaviour:
   _settings: {fileID: 11400000, guid: fc19b021afd50ed46a19b6a66a08ddd7, type: 2}
   _visual: {fileID: 1477476854634325461}
   _cameraTransform: {fileID: 0}
+--- !u!114 &8134054225813318995
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3226631143059913401}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1bf3b58f9c968045af668496320c89d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ClockworkTempo.PlayerRespawner
+  _startPoint: {fileID: 0}
+  _spawnLift: 0.1
 --- !u!1 &5361769501122356579
 GameObject:
   m_ObjectHideFlags: 0
@@ -155,7 +170,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1477476854634325461}
   m_Layer: 6
-  m_Name: Visual
+  m_Name: Body
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

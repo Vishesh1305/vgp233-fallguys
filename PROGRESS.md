@@ -1,10 +1,10 @@
 # PROGRESS: ClockworkTempo (VGP233 Assignment 3)
 
 ## Current Status
-- Phase: 1 (Player and Camera)
-- Last completed subphase: 1.3 PlayerController
-- In progress: 1.4 Cinemachine third person camera
-- Next subphase: 1.5 Feel tuning pass
+- Phase: 3 (Game Flow and Checkpoints)
+- Last completed subphase: 3.2 KillZone and respawn
+- In progress: 3.3 Checkpoints
+- Next subphase: 3.4 Respawn polish
 
 ## Repository
 - Remote: https://github.com/Vishesh1305/vgp233-fallguys (branch main)
@@ -22,8 +22,15 @@
 - [x] 1.1 Placeholder bean character (prefab verified on disk)
 - [x] 1.2 Input Actions asset (generated class and gamepad bindings verified on disk)
 - [x] 1.3 PlayerController (gravity scale added after feel test)
-- [ ] 1.4 Cinemachine third person camera
-- [ ] 1.5 Feel tuning pass
+- [x] 1.4 Cinemachine third person camera (scene values verified on disk)
+- [x] 1.5 Feel tuning pass (defaults kept, no changes)
+- [x] 2.1 Level design document (approved as designed)
+- [x] 2.2 ProBuilder workflow (Ramp_8w, Ramp_2w, Pad_8x6 prefabs and Piston Hall wall verified on disk)
+- [x] 2.3 Greybox build (43 GB_ pieces verified in saved scene)
+- [x] 3.1 GameManager state machine and events (GameManager on GameSystems, CameraInputBinder on PlayerFollowCamera, verified on disk)
+- [x] 3.2 KillZone and respawn (KillZone, StartPoint and Start Point reference verified on disk)
+- [ ] 3.3 Checkpoints
+- [ ] 3.4 Respawn polish
 
 ## Key Decisions
 | Area | Decision | Reason |
@@ -69,6 +76,21 @@
 | Jump | v = sqrt(2gh) from JumpHeight using the scaled rising gravity (g x GravityScale); coyote time and jump buffer windows; 0.1 s ground lockout after a jump | Height is set in metres, not as a force value |
 | Gravity feel | Airborne GravityScale 2.5, then x1.6 while falling and x2.0 while rising with jump released (own jump only) | Real world 9.81 with a 2.2 m jump gives about 1.1 s of airtime and reads as floaty; scaled gravity keeps the height and cuts airtime to about 0.75 s |
 | Facing | Visual child rotated toward the input direction in Update with RotateTowards | Visual only, so it never touches physics |
+| Greybox materials | Assets/_Project/Materials/Greybox: M_Grey_Floor (brass), M_Grey_Pad (parchment), M_Grey_Wall (navy), M_Grey_Hazard (red), M_Grey_Moving (blue) | Colour coding makes the level readable before art; replaced in Phase 6 |
+| Level hierarchy | Level root at the origin with 00_Start to 06_Finish section parents plus KillZone | Each section can be toggled and inspected on its own |
+| Greybox build rules | ProBuilder shapes sized in the ProBuilder Shape component (not Transform scale); walkable pieces on Ground layer and marked Static; moving obstacles never Static; no bevels on walkable edges | Unscaled transforms keep colliders, UVs and child objects predictable |
+| Greybox build method | Hybrid: Tools > Clockwork Tempo > Build Greybox (Scripts/Editor/GreyboxBuilder.cs) creates all GB_* static pieces and placeholders as ProBuilder meshes from LevelDesign.md; Start_Platform, Ramp_8w, Ramp_2w and the Piston Hall wall are built by hand | Exact coordinates and one click rebuilds, while the hand built pieces show direct ProBuilder skill (edge editing, extrude) |
+| Game flow | GameManager (Scripts/Core, execution order 100) owns GameState {MainMenu, Countdown, Playing, Paused, Finished}; static events StateChanged(previous, current) and CountdownTicked(3, 2, 1, 0 = GO); public StartRace, TogglePause, FinishRace, RestartRace | Listeners subscribe in OnEnable; the initial state is raised in Start after everyone subscribed. Static events avoid start up ordering problems; statics reset on SubsystemRegistration for disabled domain reload |
+| Singleton | GameManager.Instance only, duplicate destroyed in Awake, no DontDestroyOnLoad | Single scene; restart reloads it |
+| Time scale | Paused sets Time.timeScale 0, every other state 1; reset to 1 on destroy and before restart | No frozen scene after a restart from pause |
+| State reactions | PlayerInputReader zeroes move and jump outside Playing (pause still works); CursorLockController locks only in Countdown and Playing; CameraInputBinder enables Cinemachine look only in Countdown and Playing | Each system reacts to StateChanged itself; GameManager has no references to them |
+| Fall detection | KillZone (trigger BoxCollider on layer Trigger, centre (0, -10, 110), size (80, 2, 260)) raises static PlayerEntered when a collider tagged Player enters | CompareTag plus an event, no GetComponent in the trigger callback |
+| Respawn | PlayerRespawner on Player keeps the respawn pose (starts at Level/00_Start/StartPoint (0, 0, 4)), listens to KillZone.PlayerEntered, zeroes velocity, sets Rigidbody.position and transform.position, calls PlayerController.PrepareForRespawn, raises static Respawned | Start Point also places the player at scene start; checkpoints call SetRespawnPoint in 3.3 |
+| Checkpoints | Checkpoint prefab (Trigger layer BoxCollider over the pad, Index, SpawnPoint child, Beacon indicator swapping M_Grey_Wall to M_Grey_Active); instances Checkpoint_1 to _4 at (0,0,45), (0,2,90), (0,4,134), (0,6,174) | One reusable piece; the index, not the list order, defines progress |
+| Checkpoint progress | CheckpointTracker on GameSystems holds the checkpoint list, accepts only higher indices, activates the checkpoint, raises static CheckpointReached(Checkpoint) and ProgressChanged(current, total) | Forward only; PlayerRespawner, HUD (4.2) and audio (6.5) all listen instead of being called |
+| Initial state | Countdown until the main menu exists (switch to MainMenu in 4.4) | Playable now |
+| Placeholders | GB_Placeholder_* static stand-ins for moving platforms, discs and falling tiles | Course is traversable end to end now; Phase 5 swaps them for scripted obstacles |
+| Snapping | Unity 6.3 Snapping overlay: Grid Size 0.5 (also the move snap step), Snap to Grid on, Rotate 15, Scale 0.1 | Every coordinate in LevelDesign.md is a multiple of 0.5, so pieces land exactly |
 | Asset naming | M_ materials, PM_ physics materials, prefabs by plain name | Easy to filter in the Project window |
 | Version control | Git, Git LFS for textures, models, audio, fonts | Keeps binary history out of the main object store |
 | Serialization | Visible Meta Files, Force Text | Readable diffs, mergeable scenes and prefabs |
@@ -84,8 +106,33 @@
 ## Folder Structure
 Assets/_Project/{Art/Models, Art/Textures, Audio/Music, Audio/SFX, Materials, Prefabs, Scenes, ScriptableObjects, Scripts/{Core, Player, Obstacles, Level, Rhythm, UI}, Settings, ThirdParty, UI/Fonts, UI/Sprites}
 
+## Level Layout (Docs/LevelDesign.md)
+- Clock tower climb along +Z, about 219 m long, rising from y 0 to y 10.5.
+- Sections: Start (Winding Room), 1 Gear Run, 2 Piston Hall, 3 Escapement Bridge (B2), 4 Pendulum Gallery, 5 Clock Face Climb, Finish (Bell Tower, finish line at z 209).
+- Checkpoints 0 to 4 respawn at (0,0,4), (0,0,45), (0,2,90), (0,4,134), (0,6,174), all facing +Z.
+- Kill zone: centre (0, -10, 110), size (80, 2, 260).
+- Obstacle types (7): sweeper, wall piston, bumper peg, moving platform, pendulum hammer, spinning disc, falling tile.
+- Timing is designed in beats at 120 BPM; the shortest safe window is 2 beats.
+
+## Design Metrics (derived from current tuning, use for level layout)
+| Metric | Value | Level design rule |
+|---|---|---|
+| Full jump height | 2.2 m | Highest ledge to jump onto: 1.8 m |
+| Short hop height (tap) | about 1.1 m | Low barriers to hop: 0.8 m |
+| Full jump airtime (flat) | about 0.76 s | Timing windows for obstacles must exceed this |
+| Full jump distance at top speed | about 6.1 m | Widest gap: 4.5 m; standard gap: 2.5 to 3.5 m |
+| Time to top speed / to stop | 0.13 s / 0.11 s | |
+| Stopping distance from top speed | about 0.5 m | Narrow beams are fair at 1.5 m wide or more |
+| Coyote reach past a ledge | about 1 m at top speed | |
+| Player capsule | 1 m wide, 2 m tall | Corridors at least 3 m wide, ceilings at least 4 m |
+
 ## Known Bugs
 - None open
+- Fixed: Ramp_8w low end lip and Static flag (verified on disk)
+- Fixed: greybox built (43 pieces), Piston Hall wall renamed PistonHall_Wall
+- Fixed: KillZone configured (Trigger layer, (0, -10, 110), trigger 80 x 2 x 260)
+- Open (minor): PlayerRespawner was added on the scene Player instance, not the prefab; apply the added component to the prefab
+- Note: Player scene position no longer matters; PlayerRespawner places it on the Start Point at Start
 - Watch: ProjectSettings.asset still has defaultIsNativeResolution: 1 (Unity may hide or ignore this flag in Windowed mode, unverified); DisplayBootstrap forces 1920x1080 in builds regardless. Confirm in the 7.4 build test.
 - Fixed: first `git add .` pulled in ClockworkTempo/Library and Temp because .gitignore paths were anchored to the repo root instead of the Unity project folder
 

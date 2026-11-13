@@ -19,6 +19,11 @@ namespace ClockworkTempo
         /// <summary>True when the cursor is meant to be locked and hidden.</summary>
         public bool WantsLock => _wantsLock;
 
+        private void OnEnable()
+        {
+            GameManager.StateChanged += HandleStateChanged;
+        }
+
         private void Start()
         {
             SetLocked(_lockOnStart);
@@ -35,6 +40,7 @@ namespace ClockworkTempo
 
         private void OnDisable()
         {
+            GameManager.StateChanged -= HandleStateChanged;
             ApplyCursorState(false);
         }
 
@@ -44,6 +50,12 @@ namespace ClockworkTempo
         {
             _wantsLock = locked;
             ApplyCursorState(locked);
+        }
+
+        private void HandleStateChanged(GameState previous, GameState current)
+        {
+            // Locked while the player controls the camera; free whenever a menu or screen needs the mouse.
+            SetLocked(current == GameState.Countdown || current == GameState.Playing);
         }
 
         private static void ApplyCursorState(bool locked)

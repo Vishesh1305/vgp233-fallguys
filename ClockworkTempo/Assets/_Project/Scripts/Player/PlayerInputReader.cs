@@ -14,6 +14,9 @@ namespace ClockworkTempo
     {
         private PlayerControls _controls;
 
+        // False outside the Playing state so the bean cannot move during countdown, pause or the finish screen.
+        private bool _gameplayAllowed = true;
+
         /// <summary>Movement input, each axis in [-1, 1]. X is strafe, Y is forward.</summary>
         public Vector2 MoveInput { get; private set; }
 
@@ -34,11 +37,13 @@ namespace ClockworkTempo
         private void OnEnable()
         {
             _controls.Gameplay.Enable();
+            GameManager.StateChanged += HandleStateChanged;
         }
 
         private void OnDisable()
         {
             _controls.Gameplay.Disable();
+            GameManager.StateChanged -= HandleStateChanged;
 
             // Clear cached state so nothing reads a stale held input while this component is off.
             MoveInput = Vector2.zero;
@@ -59,10 +64,23 @@ namespace ClockworkTempo
             JumpPressed = gameplay.Jump.WasPressedThisFrame();
             JumpHeld = gameplay.Jump.IsPressed();
 
+            // Movement and jump only count while racing; pause keeps working in every state.
+            if (!_gameplayAllowed)
+            {
+                MoveInput = Vector2.zero;
+                JumpPressed = false;
+                JumpHeld = false;
+            }
+
             if (gameplay.Pause.WasPressedThisFrame())
             {
                 PausePressed?.Invoke();
             }
+        }
+
+        private void HandleStateChanged(GameState previous, GameState current)
+        {
+            _gameplayAllowed = current == GameState.Playing;
         }
     }
 }
