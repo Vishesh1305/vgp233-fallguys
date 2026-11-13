@@ -2,9 +2,9 @@
 
 ## Current Status
 - Phase: 3 (Game Flow and Checkpoints)
-- Last completed subphase: 3.2 KillZone and respawn
-- In progress: 3.3 Checkpoints
-- Next subphase: 3.4 Respawn polish
+- Last completed subphase: 3.3 Checkpoints (scene wiring verified on disk)
+- In progress: 3.4 Respawn polish (code delivered, waiting for Play Mode confirmation)
+- Next subphase: 4.1 RaceTimer logic
 
 ## Repository
 - Remote: https://github.com/Vishesh1305/vgp233-fallguys (branch main)
@@ -29,7 +29,7 @@
 - [x] 2.3 Greybox build (43 GB_ pieces verified in saved scene)
 - [x] 3.1 GameManager state machine and events (GameManager on GameSystems, CameraInputBinder on PlayerFollowCamera, verified on disk)
 - [x] 3.2 KillZone and respawn (KillZone, StartPoint and Start Point reference verified on disk)
-- [ ] 3.3 Checkpoints
+- [x] 3.3 Checkpoints (Checkpoint_01 to _04 at the LevelDesign positions with indices 1 to 4, all four listed in CheckpointTracker, verified in saved scene)
 - [ ] 3.4 Respawn polish
 
 ## Key Decisions
@@ -89,6 +89,9 @@
 | Checkpoints | Checkpoint prefab (Trigger layer BoxCollider over the pad, Index, SpawnPoint child, Beacon indicator swapping M_Grey_Wall to M_Grey_Active); instances Checkpoint_1 to _4 at (0,0,45), (0,2,90), (0,4,134), (0,6,174) | One reusable piece; the index, not the list order, defines progress |
 | Checkpoint progress | CheckpointTracker on GameSystems holds the checkpoint list, accepts only higher indices, activates the checkpoint, raises static CheckpointReached(Checkpoint) and ProgressChanged(current, total) | Forward only; PlayerRespawner, HUD (4.2) and audio (6.5) all listen instead of being called |
 | Initial state | Countdown until the main menu exists (switch to MainMenu in 4.4) | Playable now |
+| Respawn sequence | PlayerRespawner.HandleFall (on KillZone.PlayerEntered) raises static RespawnStarted(fadeOutSeconds), waits that long in unscaled time, then calls Respawn (teleport, velocity reset, facing reset, Respawned); _isRespawning ignores repeat triggers | One owner of the sequence; the fader and camera react to events, so none of the three reference each other |
+| Screen fade | ScreenFader (CanvasGroup on RespawnFadeCanvas: Overlay, sort order 100, Scale With Screen Size 1920x1080 match 0.5) fades to black on RespawnStarted and back on Respawned using unscaled time; blocksRaycasts off | Hides the teleport; unscaled time so pause cannot freeze it; will not swallow clicks on the Phase 4 menus |
+| Camera recentre | CameraRecentre on PlayerFollowCamera sets OrbitalFollow HorizontalAxis to the yaw of Player/Body, VerticalAxis to its centre, and PreviousStateIsValid to false on Respawned | Binding mode is World Space (value 4), so the horizontal axis is a world yaw and the camera lands behind the new facing; Cinemachine 3.1.7 TargetTracking skips damping when PreviousStateIsValid is false, so the view cuts instead of sliding |
 | Placeholders | GB_Placeholder_* static stand-ins for moving platforms, discs and falling tiles | Course is traversable end to end now; Phase 5 swaps them for scripted obstacles |
 | Snapping | Unity 6.3 Snapping overlay: Grid Size 0.5 (also the move snap step), Snap to Grid on, Rotate 15, Scale 0.1 | Every coordinate in LevelDesign.md is a multiple of 0.5, so pieces land exactly |
 | Asset naming | M_ materials, PM_ physics materials, prefabs by plain name | Easy to filter in the Project window |
@@ -132,6 +135,9 @@ Assets/_Project/{Art/Models, Art/Textures, Audio/Music, Audio/SFX, Materials, Pr
 - Fixed: greybox built (43 pieces), Piston Hall wall renamed PistonHall_Wall
 - Fixed: KillZone configured (Trigger layer, (0, -10, 110), trigger 80 x 2 x 260)
 - Open (minor): PlayerRespawner was added on the scene Player instance, not the prefab; apply the added component to the prefab
+- Open (found in 3.3 check): Player.prefab now contains a PlayerRespawner (Start Point empty) and the Course scene Player instance still carries its own added PlayerRespawner (Start Point set), so the Player likely has two. Before the first checkpoint a fall may respawn at the wrong spot and Respawned fires twice. Fix in 3.4 Editor Step 1: remove the scene added copy and set Start Point on the prefab one.
+- Note: the facing transform on the Player prefab is the child named Body (it holds the Visor and Capsule meshes); the Visual child described in Key Decisions refers to this object
+- Note: GameManager has Log State Changes switched on in the scene; switch it off before submission
 - Note: Player scene position no longer matters; PlayerRespawner places it on the Start Point at Start
 - Watch: ProjectSettings.asset still has defaultIsNativeResolution: 1 (Unity may hide or ignore this flag in Windowed mode, unverified); DisplayBootstrap forces 1920x1080 in builds regardless. Confirm in the 7.4 build test.
 - Fixed: first `git add .` pulled in ClockworkTempo/Library and Temp because .gitignore paths were anchored to the repo root instead of the Unity project folder
@@ -154,3 +160,4 @@ Assets/_Project/{Art/Models, Art/Textures, Audio/Music, Audio/SFX, Materials, Pr
 | Mouse Look Scale | 0.1 degrees per pixel |
 | Stick Look Speed | 180 / 110 degrees per second |
 | Look Accel / Decel Time | 0.05 / 0.05 |
+| Respawn Fade Out / In | 0.2 s / 0.25 s |

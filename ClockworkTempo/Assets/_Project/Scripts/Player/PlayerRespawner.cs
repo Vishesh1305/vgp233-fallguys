@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace ClockworkTempo
@@ -18,18 +19,31 @@ namespace ClockworkTempo
         [Tooltip("Height above the spawn point the player appears at, so it never starts inside the floor.")]
         [SerializeField, Min(0f)] private float _spawnLift = 0.1f;
 
+        [Header("Fade")]
+        [Tooltip("Seconds the screen takes to fade to black after a fall, before the player is moved. ScreenFader fades back in on its own.")]
+        [SerializeField, Min(0f)] private float _fadeOutDuration = 0.2f;
+
+        [Header("Debug")]
+        [Tooltip("Log each stage of the fall, fade and respawn sequence to the Console.")]
+        [SerializeField] private bool _logSequence = true;
+
         private Rigidbody _rigidbody;
         private PlayerController _controller;
         private Vector3 _spawnPosition;
         private Quaternion _spawnRotation;
+        private bool _isRespawning;
 
         /// <summary>Raised after the player has been moved back to the respawn point.</summary>
         public static event Action Respawned;
+
+        /// <summary>Raised when a fall is detected. The argument is how many seconds the screen should take to fade to black.</summary>
+        public static event Action<float> RespawnStarted;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             Respawned = null;
+            RespawnStarted = null;
         }
 
         private void Awake()
@@ -37,19 +51,25 @@ namespace ClockworkTempo
             _rigidbody = GetComponent<Rigidbody>();
             _controller = GetComponent<PlayerController>();
 
+            // A second copy would handle every fall twice and respawn at its own, different point.
+            if (GetComponents<PlayerRespawner>().Length > 1)
+            {
+                Debug.LogWarning($"{name} has more than one {nameof(PlayerRespawner)}. Remove the extra copy.", this);
+            }
+
             Transform spawn = _startPoint != null ? _startPoint : transform;
             SetRespawnPoint(spawn.position, spawn.rotation);
         }
 
         private void OnEnable()
         {
-            KillZone.PlayerEntered += Respawn;
+            KillZone.PlayerEntered += HandleFall;
             CheckpointTracker.CheckpointReached += HandleCheckpointReached;
         }
 
         private void OnDisable()
         {
-            KillZone.PlayerEntered -= Respawn;
+            KillZone.PlayerEntered -= HandleFall;
             CheckpointTracker.CheckpointReached -= HandleCheckpointReached;
         }
 
@@ -78,6 +98,44 @@ namespace ClockworkTempo
         private void HandleCheckpointReached(Checkpoint checkpoint)
         {
             SetRespawnPoint(checkpoint.SpawnPosition, checkpoint.SpawnRotation);
+        }
+
+        private void HandleFall()
+        {
+            if (_logSequence)
+            {
+                Debug.Log($"{nameof(PlayerRespawner)}: fall detected (already respawning: {_isRespawning})", this);
+            }
+
+            // A second trigger event during the fade must not start a second sequence.
+            if (_isRespawning)
+            {
+                return;
+            }
+
+            StartCoroutine(RespawnRoutine());
+        }
+
+        private IEnumerator RespawnRoutine()
+        {
+            _isRespawning = true;
+            RespawnStarted?.Invoke(_fadeOutDuration);
+
+            // Unscaled time, because the fader also ignores Time.timeScale; plain yield null keeps it allocation free.
+            float elapsed = 0f;
+            while (elapsed < _fadeOutDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            Respawn();
+            _isRespawning = false;
+
+            if (_logSequence)
+            {
+                Debug.Log($"{nameof(PlayerRespawner)}: respawned at {_spawnPosition}", this);
+            }
         }
 
         private void Teleport()
